@@ -2,16 +2,19 @@ from flask import render_template, request, redirect, session, flash, url_for
 from jogoteca import app, db
 from models import Jogos, Usuarios
 
+
 @app.route('/')
 def index():
     lista = Jogos.query.order_by(Jogos.id)
     return render_template('lista.html', titulo='Jogos', jogos=lista)
+
 
 @app.route('/novo')
 def novo():
     if 'usuario_logado' not in session or session['usuario_logado'] == None:
         return redirect(url_for('login', proxima=url_for('novo')))
     return render_template('novo.html', titulo='Novo Jogo')
+
 
 # Rota de intermediação 
 @app.route('/criar', methods=['POST',])
@@ -33,10 +36,49 @@ def criar():
 
     return redirect(url_for('index')) 
 
+
+@app.route('/editar/<int:id>')
+def editar(id):
+    if 'usuario_logado' not in session or session['usuario_logado'] == None:
+        return redirect(url_for('login', proxima=url_for('editar')))
+    
+    # Consulta com base no id do jogo clicado suas informações no BD
+    jogo = Jogos.query.filter_by(id=id).first()
+    return render_template('editar.html', titulo='Editando Jogo', jogo=jogo)
+
+
+# Rota de intermediação 
+@app.route('/atualizar', methods=['POST',])
+def atualizar():
+    jogo = Jogos.query.filter_by(id=request.form['id']).first()
+    jogo.nome = request.form['nome']
+    jogo.categoria = request.form['categoria']
+    jogo.console = request.form['console']
+    
+    # Altera o banco com as novas informações
+    db.session.add(jogo)
+    db.session.commit()
+    return redirect(url_for('index'))
+
+
+@app.route('/deletar/<int:id>')
+def deletar(id):
+    if 'usuario_logado' not in session or session['usuario_logado'] == None:
+        return redirect(url_for('login'))
+    
+    # Apaga do banco de dados o id X
+    Jogos.query.filter_by(id=id).delete()
+    db.session.commit()
+    flash('Jogo deletado com sucesso!')
+    
+    return redirect(url_for('index'))
+        
+
 @app.route('/login')
 def login():
     proxima = request.args.get('proxima', url_for('index'))  # Define 'index' como valor padrão
     return render_template('login.html', proxima=proxima)
+
 
 # Rota de intermediação
 @app.route('/autenticar', methods=['POST'])
@@ -52,6 +94,7 @@ def autenticar():
     # Caso usuário não exista ou senha esteja incorreta
     flash('Usuário ou senha incorretos.')
     return redirect(url_for('login'))  # Redireciona para a página de login
+
 
 @app.route('/logout')
 def logout():
