@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, session, flash, url_for, send_from_directory
 from jogoteca import app, db
 from models import Jogos, Usuarios
-from helpers import recupera_imagem, deleta_arquivo
+from helpers import recupera_imagem, deleta_arquivo, FormualarioJogo, FormularioUsuario
 import time
 
 @app.route('/')
@@ -14,15 +14,21 @@ def index():
 def novo():
     if 'usuario_logado' not in session or session['usuario_logado'] == None:
         return redirect(url_for('login', proxima=url_for('novo')))
-    return render_template('novo.html', titulo='Novo Jogo')
+    form = FormualarioJogo()
+    return render_template('novo.html', titulo='Novo Jogo', form=form)
 
 
 # Rota de intermediação 
 @app.route('/criar', methods=['POST',])
 def criar():
-    nome = request.form['nome']
-    categoria = request.form['categoria']
-    console = request.form['console']
+    form = FormualarioJogo(request.form)
+
+    if not form.validate_on_submit():
+        return redirect(url_for('novo'))
+
+    nome = form.nome.data
+    categoria = form.categoria.data
+    console = form.console.data
     
     # Query para verificar se o jogo já existe no banco
     jogo = Jogos.query.filter_by(nome=nome).first()
@@ -50,28 +56,35 @@ def editar(id):
     
     # Consulta com base no id do jogo clicado suas informações no BD
     jogo = Jogos.query.filter_by(id=id).first()
+    form = FormualarioJogo()
+    form.nome.data = jogo.nome
+    form.categoria.data = jogo.categoria
+    form.console.data = jogo.console
     capa_jogo = recupera_imagem(id)
-    return render_template('editar.html', titulo='Editando Jogo', jogo=jogo, capa_jogo=capa_jogo)
+    return render_template('editar.html', titulo='Editando Jogo', id=id, capa_jogo=capa_jogo, form=form)
 
 
 # Rota de intermediação 
 @app.route('/atualizar', methods=['POST',])
 def atualizar():
-    jogo = Jogos.query.filter_by(id=request.form['id']).first()
-    jogo.nome = request.form['nome']
-    jogo.categoria = request.form['categoria']
-    jogo.console = request.form['console']
-    
-    # Altera o banco com as novas informações
-    db.session.add(jogo)
-    db.session.commit()
+    form = FormualarioJogo(request.form)
+    if form.validate_on_submit():
+        jogo = Jogos.query.filter_by(id=request.form['id']).first()
+        jogo.nome = form.nome.data
+        jogo.categoria = form.categoria.data
+        jogo.console = form.console.data
+        
+        # Altera o banco com as novas informações
+        db.session.add(jogo)
+        db.session.commit()
 
-    # Pegando o arquivo de imagem do jogo
-    arquivo = request.files['arquivo']
-    upload_path = app.config['UPLOAD_PATH']
-    timestamp = time.time()
-    deleta_arquivo(jogo.id) # Função para apagar duplicados
-    arquivo.save(fr'{upload_path}/capa{jogo.id}-{timestamp}.jpg') # Salva as informações no caminho
+        # Pegando o arquivo de imagem do jogo
+        arquivo = request.files['arquivo']
+        upload_path = app.config['UPLOAD_PATH']
+        timestamp = time.time()
+        deleta_arquivo(jogo.id) # Função para apagar duplicados
+        arquivo.save(fr'{upload_path}/capa{jogo.id}-{timestamp}.jpg') # Salva as informações no caminho
+    
     return redirect(url_for('index'))
 
 
@@ -91,15 +104,18 @@ def deletar(id):
 @app.route('/login')
 def login():
     proxima = request.args.get('proxima', url_for('index'))  # Define 'index' como valor padrão
-    return render_template('login.html', proxima=proxima)
+    form = FormularioUsuario()
+    return render_template('login.html', proxima=proxima, form=form)
 
 
 # Rota de intermediação
 @app.route('/autenticar', methods=['POST'])
 def autenticar():
-    usuario = Usuarios.query.filter_by(nickname=request.form['usuario']).first() # Procura pelo usuário no banco
+    form = FormularioUsuario(request.form)
+
+    usuario = Usuarios.query.filter_by(nickname=form.nickname.data).first() # Procura pelo usuário no banco
     if usuario:
-        if request.form['senha'] == usuario.senha:
+        if form.senha.data == usuario.senha:
             session['usuario_logado'] = usuario.nickname
             flash(f'{usuario.nickname} logado com sucesso!')
             proxima_pagina = request.form.get('proxima', url_for('index'))  # Garante que sempre tenha um destino válido
