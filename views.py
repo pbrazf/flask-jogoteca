@@ -1,7 +1,8 @@
 from flask import render_template, request, redirect, session, flash, url_for, send_from_directory
 from jogoteca import app, db
 from models import Jogos, Usuarios
-
+from helpers import recupera_imagem, deleta_arquivo
+import time
 
 @app.route('/')
 def index():
@@ -33,23 +34,24 @@ def criar():
     novo_jogo = Jogos(nome=nome, categoria=categoria, console=console)
     db.session.add(novo_jogo)
     db.session.commit()
-
+ 
     # Pegando o arquivo de imagem do jogo
     arquivo = request.files['arquivo']
     upload_path = app.config['UPLOAD_PATH']
-    arquivo.save(fr'{upload_path}/capa{novo_jogo.id}.jpg') # Salva as informações no caminho
-
+    timestamp = time.time()
+    arquivo.save(fr'{upload_path}/capa{jogo.id}-{timestamp}.jpg') # Salva as informações no caminho
     return redirect(url_for('index')) 
 
 
 @app.route('/editar/<int:id>')
 def editar(id):
     if 'usuario_logado' not in session or session['usuario_logado'] == None:
-        return redirect(url_for('login', proxima=url_for('editar')))
+        return redirect(url_for('login', proxima=url_for('editar', id=id)))
     
     # Consulta com base no id do jogo clicado suas informações no BD
     jogo = Jogos.query.filter_by(id=id).first()
-    return render_template('editar.html', titulo='Editando Jogo', jogo=jogo)
+    capa_jogo = recupera_imagem(id)
+    return render_template('editar.html', titulo='Editando Jogo', jogo=jogo, capa_jogo=capa_jogo)
 
 
 # Rota de intermediação 
@@ -63,6 +65,13 @@ def atualizar():
     # Altera o banco com as novas informações
     db.session.add(jogo)
     db.session.commit()
+
+    # Pegando o arquivo de imagem do jogo
+    arquivo = request.files['arquivo']
+    upload_path = app.config['UPLOAD_PATH']
+    timestamp = time.time()
+    deleta_arquivo(jogo.id) # Função para apagar duplicados
+    arquivo.save(fr'{upload_path}/capa{jogo.id}-{timestamp}.jpg') # Salva as informações no caminho
     return redirect(url_for('index'))
 
 

@@ -28,8 +28,10 @@
             <h1>{{ titulo }}</h1>
         </div>
 
-        {% block conteudo %} {% endblock %}
+            {% block conteudo %} {% endblock %}
 
+            <script type="text/javascript" src="{{ url_for('static', filename='jquery.js') }}"></script>
+            <script type="text/javascript" src="{{ url_for('static', filename='app.js') }}"></script>
         </div>
     </body>
 </html>
