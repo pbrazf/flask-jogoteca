@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, session, flash, url_for, send_from_directory
 from jogoteca import app, db
-from models import Jogos, Usuarios
-from helpers import recupera_imagem, deleta_arquivo, FormualarioJogo, FormularioUsuario
+from models import Jogos
+from helpers import recupera_imagem, deleta_arquivo, FormualarioJogo
 import time
 
 @app.route('/')
@@ -9,14 +9,12 @@ def index():
     lista = Jogos.query.order_by(Jogos.id)
     return render_template('lista.html', titulo='Jogos', jogos=lista)
 
-
 @app.route('/novo')
 def novo():
     if 'usuario_logado' not in session or session['usuario_logado'] == None:
         return redirect(url_for('login', proxima=url_for('novo')))
     form = FormualarioJogo()
     return render_template('novo.html', titulo='Novo Jogo', form=form)
-
 
 # Rota de intermediação 
 @app.route('/criar', methods=['POST',])
@@ -48,7 +46,6 @@ def criar():
     arquivo.save(fr'{upload_path}/capa{jogo.id}-{timestamp}.jpg') # Salva as informações no caminho
     return redirect(url_for('index')) 
 
-
 @app.route('/editar/<int:id>')
 def editar(id):
     if 'usuario_logado' not in session or session['usuario_logado'] == None:
@@ -62,7 +59,6 @@ def editar(id):
     form.console.data = jogo.console
     capa_jogo = recupera_imagem(id)
     return render_template('editar.html', titulo='Editando Jogo', id=id, capa_jogo=capa_jogo, form=form)
-
 
 # Rota de intermediação 
 @app.route('/atualizar', methods=['POST',])
@@ -87,7 +83,6 @@ def atualizar():
     
     return redirect(url_for('index'))
 
-
 @app.route('/deletar/<int:id>')
 def deletar(id):
     if 'usuario_logado' not in session or session['usuario_logado'] == None:
@@ -99,40 +94,7 @@ def deletar(id):
     flash('Jogo deletado com sucesso!')
     
     return redirect(url_for('index'))
-        
-
-@app.route('/login')
-def login():
-    proxima = request.args.get('proxima', url_for('index'))  # Define 'index' como valor padrão
-    form = FormularioUsuario()
-    return render_template('login.html', proxima=proxima, form=form)
-
-
-# Rota de intermediação
-@app.route('/autenticar', methods=['POST'])
-def autenticar():
-    form = FormularioUsuario(request.form)
-
-    usuario = Usuarios.query.filter_by(nickname=form.nickname.data).first() # Procura pelo usuário no banco
-    if usuario:
-        if form.senha.data == usuario.senha:
-            session['usuario_logado'] = usuario.nickname
-            flash(f'{usuario.nickname} logado com sucesso!')
-            proxima_pagina = request.form.get('proxima', url_for('index'))  # Garante que sempre tenha um destino válido
-            return redirect(proxima_pagina)
     
-    # Caso usuário não exista ou senha esteja incorreta
-    flash('Usuário ou senha incorretos.')
-    return redirect(url_for('login'))  # Redireciona para a página de login
-
-
-@app.route('/logout')
-def logout():
-    session['usuario_logado'] = None
-    flash('Logout efetuado com sucesso.')
-    return redirect(url_for('index'))
-
-
 @app.route('/uploads/<nome_arquivo>')
 def imagem(nome_arquivo):
     return send_from_directory('uploads', nome_arquivo)
